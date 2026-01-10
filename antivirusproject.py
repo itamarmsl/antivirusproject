@@ -6,6 +6,7 @@ import time
 import json
 import os
 import re
+import hashlib
 
 API_KEY = "0404997641d12cc3b0b26064812e62f31da645bd33e929307be09123c01aa0ca"
 URL = "https://www.virustotal.com/api/v3/files"
@@ -16,7 +17,7 @@ def select_dir():
         print(f"Selected directory: {str(dir_path)}")
         dir_safe_var.set("Scanning directory...")
         file_safe_var.set("Scanning file...")
-        threading.Thread(target=scan_dir, args=(dir_path,),daemon=True).start()   
+        threading.Thread(target=scan_dir, args=(dir_path,),daemon=True).start()
 
 def select_file():
     file_path = filedialog.askopenfilename()
@@ -24,7 +25,7 @@ def select_file():
         basename = os.path.basename(file_path)
         print(f"Selected file: {file_path}")
         file_safe_var.set("Scanning file...")
-        progress_var.set(f"Scanning '{basename}'")
+        progress_var.set(f"Scanning {basename}")
         threading.Thread(target=scan_file, args=(file_path,), daemon=True).start()
 
 def update_label_safe(label_var, text):
@@ -67,6 +68,23 @@ def scan_dir(dir_path):
     update_label_safe(file_safe_var, "File status")
 
 def scan_file(file_path):
+    file_hash = get_file_hash(file_path)
+    if file_hash is None:
+        update_label_safe(file_safe_var, "Error reading file")
+        return "error"
+        
+    basename = os.path.basename(file_path)
+
+    stats = check_hash(file_hash)
+    if stats:
+        if stats["malicious"] > 0:
+            update_label_safe(file_safe_var, "Malicious ⚠️")
+            return "malicious"
+        else:
+            update_label_safe(file_safe_var, "Safe ✅")
+            update_label_safe(progress_var, f"Scanned {basename}")
+            return "safe"
+    # upload as before
     headers = {
         "x-apikey": API_KEY
     }
@@ -89,12 +107,13 @@ def scan_file(file_path):
             update_label_safe(file_safe_var, "Scan failed")
             return "error"
 
-        # save json per file
+        # save json per file on PC (optional)
         safe_name = os.path.basename(file_path)
         safe_name = re.sub(r'[<>:"/\\|?*]', '_', safe_name)
         output_path = f"C:/Users/itama/Downloads/responses/{safe_name}.json"
         with open(output_path, "w") as rf:
             json.dump(data, rf, indent=2)
+
 
         analysis_id = data["data"]["id"]
         print("Uploaded. Analysis ID:", analysis_id)
@@ -108,6 +127,7 @@ def scan_file(file_path):
             return "malicious"
         else:
             update_label_safe(file_safe_var, "Safe ✅")
+            update_label_safe(progress_var, f"Scanned {basename}")
             return "safe"
     else:
         print("Upload failed: ", response.status_code, response.text)
@@ -140,7 +160,35 @@ def get_analysis(analysis_id):
         print("Failed to get analysis:", response.status_code)
         return None
 
-# GUI
+# hash
+def get_file_hash(file_path):
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+            return sha256.hexdigest()
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+        return None
+    
+def check_hash(hash_value):
+    headers = {"x-apikey": API_KEY}
+    url = f"{URL}/{hash_value}"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        stats = data["data"]["attributes"]["last_analysis_stats"]
+        print(f"Hash known. Stats: {stats}")
+        return stats
+    elif response.status_code == 404:
+        # unknown file, need to upload
+        return None
+    else:
+        print("Error checking has: ", response.status_code, response.text)
+        return None
+
+# -------------GUI------------------
 window = tk.Tk()
 window.title("Anti-Virus Project")
 window.geometry("800x800")
@@ -168,12 +216,6 @@ for w in [dir_select, file_select, exit_btn, dir_safe, file_safe, progress_label
 progress_label.config(font=("Arial", 20))
 exit_btn.config(fg="red")
 
-# dir_select.config(font=("Arial",30), padx=10,pady=10)
-# file_select.config(font=("Arial",30), padx=10,pady=10)
-# exit_btn.config(font=("Arial",30), padx=10,pady=10, fg="red")
-# dir_safe.config(font=("Arial",30), padx=10,pady=10)
-# file_safe.config(font=("Arial",30), padx=10,pady=10)
-
 # Pack
 dir_select.pack(expand=True)
 file_select.pack(expand=True)
@@ -187,6 +229,7 @@ exit_btn.pack(expand=True)
 # get_info.pack(expand=True)
 window.mainloop()
 
+# check how big the window size should be set at using a button (not used)
 def print_window_size() -> None:
     """
     Prints the dimensions of the window
