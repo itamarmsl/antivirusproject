@@ -11,6 +11,7 @@ import hashlib
 API_KEY = "0404997641d12cc3b0b26064812e62f31da645bd33e929307be09123c01aa0ca"
 URL = "https://www.virustotal.com/api/v3/files"
 
+# Button functions
 def select_dir():
     dir_path = filedialog.askdirectory()
     if dir_path:
@@ -28,9 +29,11 @@ def select_file():
         progress_var.set(f"Scanning {basename}")
         threading.Thread(target=scan_file, args=(file_path,), daemon=True).start()
 
+# Update label safely with other threads running
 def update_label_safe(label_var, text):
     window.after(0, lambda: label_var.set(text))
 
+# Send the requests to VirusTotal using the API key functions
 def get_filepaths(dir_path):
     files = []
     i=0
@@ -160,7 +163,8 @@ def get_analysis(analysis_id):
         print("Failed to get analysis:", response.status_code)
         return None
 
-# hash
+
+# Hash functions
 def get_file_hash(file_path):
     sha256 = hashlib.sha256()
     try:
@@ -189,17 +193,20 @@ def check_hash(hash_value):
         return None
 
 # -------------GUI------------------
+# Create window
 window = tk.Tk()
 window.title("Anti-Virus Project")
 window.geometry("800x800")
 window.resizable(True,True)
 
+# Labels using StringVar
 dir_safe_var = tk.StringVar()
 file_safe_var = tk.StringVar()
 progress_var = tk.StringVar()
 
 dir_safe_var.set("Directory status")
 file_safe_var.set("File status")
+progress_var.set("File name")
 
 # Buttons
 dir_select = tk.Button(window,text="Select directory", command=select_dir)
@@ -211,6 +218,7 @@ dir_safe = tk.Label(window, textvariable=dir_safe_var)
 file_safe = tk.Label(window, textvariable=file_safe_var)
 progress_label = tk.Label(window, textvariable=progress_var)
 
+# Config
 for w in [dir_select, file_select, exit_btn, dir_safe, file_safe, progress_label]:
     w.config(font=("Arial",30), padx=10,pady=10)
 progress_label.config(font=("Arial", 20))
@@ -223,7 +231,7 @@ dir_safe.pack(expand=True)
 progress_label.pack(expand=True)
 file_safe.pack(expand=True)
 exit_btn.pack(expand=True)
-# Adds a button to get window size
+# -----Adds a button to get window size (not used)----
 # get_info = tk.Button(window, text="Get info", command=print_window_size)
 # get_info.config(font=("Arial",30), padx=10,pady=10)
 # get_info.pack(expand=True)
@@ -237,5 +245,4 @@ def print_window_size() -> None:
     """
     width = window.winfo_width()
     height = window.winfo_height()
-    print(window.winfo_pixels(10))
     print(f"Window size: {width}x{height}")
