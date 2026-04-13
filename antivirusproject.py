@@ -113,7 +113,10 @@ def scan_file(file_path):
         # save json per file on PC (optional)
         safe_name = os.path.basename(file_path)
         safe_name = re.sub(r'[<>:"/\\|?*]', '_', safe_name)
-        output_path = f"C:/Users/itama/Downloads/responses/{safe_name}.json"
+        downloads_path = os.path.expanduser("~/Downloads/responses")
+        if not os.path.exists(downloads_path):
+            os.makedirs(downloads_path) 
+        output_path = f"{downloads_path}/{safe_name}.json" # save the response in a file named after the scanned file in the downloads folder, in a subfolder called responses
         with open(output_path, "w") as rf:
             json.dump(data, rf, indent=2)
 
